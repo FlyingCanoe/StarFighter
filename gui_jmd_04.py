@@ -143,6 +143,7 @@ class Vaisseau():
     def supprimeObus(self):
         for i in self.obusMort:
             self.obus.remove(i)
+        self.obusMort = []
 
     def hitbox(self):
         x0=self.x-(self.taille/2)
