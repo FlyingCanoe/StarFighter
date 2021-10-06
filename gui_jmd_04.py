@@ -110,7 +110,12 @@ class Partie():
     def verifierCollision(self):
         for i in self.ufos:
             for j in self.vaisseau.obus:
-                pass
+                ufox0, ufoy0, ufox1, ufoy1 = i.hitbox()
+                obusx0, obusy0, obusx1, obusy1 = j.hitbox()
+                if (ufox0 >= obusx0 and ufox0 <=obusx1) or (ufox1 <= obusx0 and ufox1 >= obusx1):
+                    if (ufoy0 >= obusy0 and ufoy0 <=obusy1) or (ufoy1 <= obusy0 and ufoy1 >= obusy1):
+                        self.ufosMorts.append(i)
+                        self.vaisseau.obusMort.append(j)
 
     def creerNiveau(self):
         self.niveau+=1
