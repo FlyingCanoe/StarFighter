@@ -1,7 +1,58 @@
 # Starfighter par ... au cvm, automne 2021
 import random
+import time
 from helper import *
 from tkinter import *
+
+
+class Menu:
+    def __init__(self, parent):
+        self.vue = parent
+        self.btn = Button(parent.cadre, text="Démarrer partie")
+        self.btn.bind("<Button-1>", self.demmarerPartie)
+        self.btn.pack()
+
+    def pack_forget(self):
+        self.btn.pack_forget()
+
+    def pack(self):
+        self.btn.pack()
+
+    def demmarerPartie(self, evt):
+        self.vue.demmarerPartie(evt)
+
+
+class EcranDeJeu:
+    def __init__(self, parent, partie):
+        self.vue = parent
+        self.canevas = Canvas(self.vue.cadre, width=400, height=400, bg="chartreuse2")
+        self.tailleX=partie.dimX
+        self.tailleY=partie.dimY
+        self.canevas.config(width=self.tailleX, height=self.tailleY, bg="cyan")
+        self.canevas.bind("<Motion>", self.vue.deplacer)
+        self.canevas.bind("<Button>", self.vue.creerObus)
+
+    def pack(self):
+        self.canevas.pack()
+
+    def pack_forget(self):
+        self.canevas.pack_forget()
+
+    def afficherPartie(self, partie):
+        self.canevas.delete(ALL)
+        vais=partie.vaisseau
+        bord=vais.taille/2
+        #self.canevas.create_rectangle(vais.x-bord, vais.y-bord, vais.x+bord, vais.y+bord, fill="red")
+        self.canevas.create_polygon(vais.x, vais.y-bord, vais.x+bord, vais.y+bord, vais.x-bord, vais.y+bord, fill="red")
+        for i in partie.vaisseau.obus:
+            bord1=i.taille/2
+            self.canevas.create_oval(i.x - bord1, i.y - i.taille, i.x + bord1, i.y + i.taille, fill="pink")
+        for i in partie.ufos:
+            bord=i.taille/2
+            self.canevas.create_oval(i.x-bord, i.y-bord, i.x+bord, i.y+bord, fill="yellow")
+            for j in i.projectiles:
+                bord1=j.taille/2
+                self.canevas.create_oval(j.x - bord1, j.y - j.taille, j.x + bord1, j.y + j.taille, fill="green")
 
 ##VUE#######
 class Vue():
@@ -9,25 +60,21 @@ class Vue():
         self.parent=parent
         self.root=Tk() #Tk() est la fonction d'initialisation de l'environnement graphique, et comme effet secondaire, crée une fenêtre, qu'on met dans root
         self.root.title("Bienvenue")
+        self.cadre = None
+        self.menu = None
+        self.ecran_de_jeu = None
         self.creerCadrePrincipal()
 
     def creerCadrePrincipal(self):
         self.cadre=Frame(self.root)
-        labelbinevenue = Label(self.cadre, text="Bienvenue au GUI", bg="orange")
-        labelbinevenue.pack()
-        btn=Button(self.cadre, text="Démarrer partie")
-        btn.bind("<Button-1>", self.demmarerPartie)
-        self.canevas=Canvas(self.cadre, width=400, height=400, bg="chartreuse2")
-        self.canevas.pack()
-        btn.pack()
+        self.menu = Menu(self)
+        self.menu.pack()
         self.cadre.pack()
 
     def initialiserPartie(self, partie):
-        tailleX=partie.dimX
-        tailleY=partie.dimY
-        self.canevas.config(width=tailleX, height=tailleY, bg="cyan")
-        self.canevas.bind("<Motion>", self.deplacer)
-        self.canevas.bind("<Button>", self.creerObus)
+        self.menu.pack_forget()
+        self.ecran_de_jeu = EcranDeJeu(self, partie)
+        self.ecran_de_jeu.pack()
 
     def creerObus(self,evt):
         self.parent.creerObus()
@@ -52,6 +99,11 @@ class Vue():
         x=evt.x
         y=evt.y
         self.parent.deplacer(x, y)
+
+    def game_over(self):
+        self.ecran_de_jeu.pack_forget()
+        self.menu.pack()
+        pass
 
 ##MODELE###########
 class Starfighter():
@@ -82,7 +134,6 @@ class Partie():
         self.ufosMorts=[]
         self.creerNiveau()
 
-
     def deplacer(self, x, y):
         self.vaisseau.deplacer(x, y)
 
@@ -112,8 +163,8 @@ class Partie():
             for j in self.vaisseau.obus:
                 ufox0, ufoy0, ufox1, ufoy1 = i.hitbox()
                 obusx0, obusy0, obusx1, obusy1 = j.hitbox()
-                if (ufox0 >= obusx0 and ufox0 <=obusx1) or (ufox1 <= obusx0 and ufox1 >= obusx1):
-                    if (ufoy0 >= obusy0 and ufoy0 <=obusy1) or (ufoy1 <= obusy0 and ufoy1 >= obusy1):
+                if (obusx0 >= ufox0 and obusx0 <= ufox1) or (obusx1 >= ufox0 and obusx1 <= ufox1):
+                    if (ufoy0 >= obusy0 and ufoy0 <=obusy1) or (ufoy1 >= obusy0 and ufoy1 <= obusy1):
                         self.ufosMorts.append(i)
                         self.vaisseau.obusMort.append(j)
 
@@ -129,7 +180,13 @@ class Partie():
     def creerObus(self):
         self.vaisseau.creerObus()
 
-class Vaisseau():
+    def supprimerUfos(self):
+        for i in self.ufosMorts:
+            self.ufos.remove(i)
+        self.ufosMorts = []
+
+
+class Vaisseau:
     def __init__(self, parent, x, y):
         self.parent=parent
         self.taille=30
@@ -153,12 +210,12 @@ class Vaisseau():
     def hitbox(self):
         x0=self.x-(self.taille/2)
         y0=self.y-(self.taille/2)
-        x1=self.x+(self.taille / 2)
-        y1=self.y+(self.taille / 2)
+        x1=self.x+(self.taille/2)
+        y1=self.y+(self.taille/2)
         return x0, y0, x1, y1
 
 
-class Obus():
+class Obus:
     def __init__(self, parent, x, y):
         self.parent = parent
         self.x = x
@@ -176,7 +233,8 @@ class Obus():
         y1=self.y+(self.taille / 2)
         return x0, y0, x1, y1
 
-class Ufo():
+
+class Ufo:
     def __init__(self, parent, x, y):
         self.parent=parent
         self.taille=16
@@ -206,10 +264,10 @@ class Ufo():
         self.y+=y
 
     def hitbox(self):
-        x0=self.x-(self.taille/2)
-        y0=self.y-(self.taille/2)
-        x1=self.x+(self.taille / 2)
-        y1=self.y+(self.taille / 2)
+        x0 = self.x-((self.taille/2))
+        y0 = self.y-((self.taille/2))
+        x1 = self.x+((self.taille/2) )
+        y1 = self.y+((self.taille/2))
         return x0, y0, x1, y1
 
 ##CONTROLEUR#######
@@ -231,7 +289,8 @@ class Controleur():
     def jouerCoup(self):
         self.modele.jouerCoup()
         self.vue.afficherPartie(self.partie)
-        self.vue.root.after(50, self.jouerCoup)
+        if self.partie_en_cours == True:
+            self.vue.root.after(16, self.jouerCoup)
 
     def deplacer(self, x, y):
         self.modele.deplacer(x, y)
